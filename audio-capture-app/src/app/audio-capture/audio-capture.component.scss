@@ -1,0 +1,22 @@
+.grid-container {
+    display: grid;
+    align-items: center;
+    justify-items: center;
+    width:50vw;
+}
+  
+.point {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: red;
+}
+
+.hidden{
+    display: none;
+}
+
+.container{
+    margin-bottom: 200px;
+}

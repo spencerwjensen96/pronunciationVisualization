@@ -1,0 +1,15 @@
+<audio #audioElement controls>
+    <source 
+        [src]="audioFileUrl" 
+        type="audio/wav"
+        crossorigin="anonymous"
+        id="audio">
+    Your browser does not support the audio element.
+</audio>
+<div>
+    MFCC: {{ mfcc }}
+</div>
+
+<div class="grid-container">
+    <div class="point" [style.left.px]="f1" [style.top.px]="f2"></div>
+</div>

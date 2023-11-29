@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audio Capture</title>
+</head>
+<body>
+    <button id="captureButton">Capture Audio</button>
+    <button id="stopButton" disabled>Stop Recording</button>
+    <script>
+        const captureButton = document.getElementById('captureButton');
+        const stopButton = document.getElementById('stopButton');
+
+        // Check if the browser supports audio capture
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            let mediaRecorder;
+            let chunks = [];
+
+            captureButton.addEventListener('click', async () => {
+                try {
+                    // Request permission to access the microphone
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                    // Create a new MediaRecorder instance to capture the audio
+                    mediaRecorder = new MediaRecorder(stream);
+
+                    // Enable the stop button and disable the capture button
+                    stopButton.disabled = false;
+                    captureButton.disabled = true;
+
+                    // Event handler for when data is available
+                    mediaRecorder.addEventListener('dataavailable', (event) => {
+                        chunks.push(event.data);
+                    });
+
+                    // Event handler for when recording is stopped
+                    mediaRecorder.addEventListener('stop', () => {
+                        // Create a new Blob from the captured audio chunks
+                        const audioBlob = new Blob(chunks, { type: 'audio/wav' });
+
+                        // Create a new URL for the audio Blob
+                        const audioUrl = URL.createObjectURL(audioBlob);
+
+                        // Create a new audio element to play the captured audio
+                        const audioElement = document.createElement('audio');
+                        audioElement.controls = true;
+                        audioElement.src = audioUrl;
+
+                        // Append the audio element to the document body
+                        document.body.appendChild(audioElement);
+
+                        // Disable the stop button and enable the capture button
+                        stopButton.disabled = true;
+                        captureButton.disabled = false;
+
+                        // Reset the chunks array
+                        chunks = [];
+                    });
+
+                    // Start recording
+                    mediaRecorder.start();
+                } catch (error) {
+                    console.error('Error accessing microphone:', error);
+                }
+            });
+
+            stopButton.addEventListener('click', () => {
+                // Stop recording
+                mediaRecorder.stop();
+            });
+        } else {
+            console.error('Audio capture is not supported in this browser.');
+        }
+    </script>
+</body>
+</html>

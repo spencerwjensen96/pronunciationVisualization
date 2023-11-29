@@ -1,0 +1,8 @@
+<div class="container">
+    <button (click)="startRecording()" [disabled]="isRecording">Capture Audio</button>
+    <button (click)="stopRecording()" [disabled]="!isRecording">Stop Recording</button>
+
+    <div class="grid-container">
+        <div class="point" [style.left.px]="f1" [style.top.px]="f2"></div>
+    </div>
+</div>
