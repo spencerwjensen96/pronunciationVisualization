@@ -1,11 +1,15 @@
 import torch
 import torchaudio
+import torchaudio.transforms as T
 import streamlit as st
 import tempfile
 import os
+import math
 
 from dataclasses import dataclass
 import matplotlib.pyplot as plt
+
+from formants import get_formants 
 
 @dataclass
 class Point:
@@ -37,47 +41,9 @@ def plot():
     ax.set_xlabel("Time")
     ax.set_ylabel("Labels")
     fig.colorbar(img, ax=ax, shrink=0.6, location="bottom")
+    
     fig.tight_layout()
     return fig
-
-def plot_trellis_with_segments(trellis, segments, transcript):
-    # To plot trellis with path, we take advantage of 'nan' value
-    trellis_with_path = trellis.clone()
-    for i, seg in enumerate(segments):
-        if seg.label != "|":
-            trellis_with_path[seg.start : seg.end, i] = float("nan")
-
-    fig, [ax1, ax2] = plt.subplots(2, 1, sharex=True)
-    ax1.set_title("Path, label and probability for each label")
-    ax1.imshow(trellis_with_path.T, origin="lower", aspect="auto")
-
-    for i, seg in enumerate(segments):
-        if seg.label != "|":
-            ax1.annotate(seg.label, (seg.start, i - 0.7), size="small")
-            ax1.annotate(f"{seg.score:.2f}", (seg.start, i + 3), size="small")
-
-    ax2.set_title("Label probability with and without repetation")
-    xs, hs, ws = [], [], []
-    for seg in segments:
-        if seg.label != "|":
-            xs.append((seg.end + seg.start) / 2 + 0.4)
-            hs.append(seg.score)
-            ws.append(seg.end - seg.start)
-            ax2.annotate(seg.label, (seg.start + 0.8, -0.07))
-    ax2.bar(xs, hs, width=ws, color="gray", alpha=0.5, edgecolor="black")
-
-    xs, hs = [], []
-    for p in path:
-        label = transcript[p.token_index]
-        if label != "|":
-            xs.append(p.time_index + 1)
-            hs.append(p.score)
-
-    ax2.bar(xs, hs, width=0.5, alpha=0.5)
-    ax2.axhline(0, color="black")
-    ax2.grid(True, axis="y")
-    ax2.set_ylim(-0.1, 1.1)
-    fig.tight_layout()
 
 
 
@@ -188,6 +154,13 @@ def merge_words(segments, separator="|"):
             i2 += 1
     return words
 
+def scatter_plot(x, y, x_label, y_label, title):
+    plt.scatter(x, y)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.title(title)
+    return plt
+
 torch.random.manual_seed(0)
 audio = st.file_uploader("Upload a file", type=["wav"])
 # audio = torchaudio.utils.download_asset("tutorial-assets/Lab41-SRI-VOiCES-src-sp0307-ch127535-sg0042.wav")
@@ -211,6 +184,8 @@ else:
         waveform, _ = torchaudio.load(audio_path)
         emissions, _ = model(waveform.to(device))
         emissions = torch.log_softmax(emissions, dim=-1)
+        # spectrogram = T.Spectrogram(n_fft=512)
+        # spec = spectrogram(waveform)
 
     emission = emissions[0].cpu().detach()
 
@@ -236,7 +211,7 @@ else:
 
     if st.button("Plot Alignment"):
         st.pyplot(plot())
-        
+
         for word in word_segments:
             st.text(word)
 
@@ -245,3 +220,32 @@ else:
 
     if st.button("Backtrace"):
         st.pyplot(plot_trellis_with_path(trellis, path))
+
+    st.title("Formant Analysis")
+    option = st.selectbox(
+        'Which tokens are you interested in?',
+        set(transcript))
+    frames_of_interest = []
+
+    ratio = waveform.size(1) / trellis.size(0)
+
+    for seg in segments:
+        if seg.label == option:
+            start = int(ratio * seg.start)
+            end = int(ratio * seg.end)
+            range_seg = [*range(start, end, 1)] 
+            frames_of_interest += range_seg
+    
+    metadata = torchaudio.info(audio_path)
+    f1, f2 = get_formants(audio_path)
+    diff_frames = metadata.num_frames - len(f1)
+    additional_frames = [0]*math.ceil(diff_frames/2)
+    f1 = additional_frames + f1 + additional_frames
+    f2 = additional_frames + f2 + additional_frames
+
+    f1_frames = [f1[i] for i in frames_of_interest]
+    f2_frames = [f2[i] for i in frames_of_interest]
+    
+    st.pyplot(scatter_plot(f1_frames, f2_frames, "F1", "F2", "Formants"))
+
+
