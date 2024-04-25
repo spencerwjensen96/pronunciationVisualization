@@ -34,7 +34,7 @@ class Segment:
         return self.end - self.start
 
 
-def plot():
+def plot_alignment():
     fig, ax = plt.subplots()
     img = ax.imshow(emission.T)
     ax.set_title("Frame-wise class probability")
@@ -161,6 +161,15 @@ def scatter_plot(x, y, x_label, y_label, title):
     plt.title(title)
     return plt
 
+def scatter_plot_multi(x, y, labels, x_label, y_label, title):
+    for i, values in enumerate(x):
+        plt.scatter(values, y[i])
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.title(title)
+    plt.legend(labels)
+    return plt
+
 torch.random.manual_seed(0)
 audio = st.file_uploader("Upload a file", type=["wav"])
 # audio = torchaudio.utils.download_asset("tutorial-assets/Lab41-SRI-VOiCES-src-sp0307-ch127535-sg0042.wav")
@@ -210,7 +219,7 @@ else:
     word_segments = merge_words(segments)
 
     if st.button("Plot Alignment"):
-        st.pyplot(plot())
+        st.pyplot(plot_alignment())
 
         for word in word_segments:
             st.text(word)
@@ -222,30 +231,37 @@ else:
         st.pyplot(plot_trellis_with_path(trellis, path))
 
     st.title("Formant Analysis")
-    option = st.selectbox(
+    options = st.multiselect(
         'Which tokens are you interested in?',
         set(transcript))
-    frames_of_interest = []
-
     ratio = waveform.size(1) / trellis.size(0)
+    if st.button("Analyse Formants"):
+        f1_values = []
+        f2_values = []
+        scatter_labels = []
+        
+        for option in options:
+            frames_of_interest = []
+            for seg in segments:
+                if seg.label == option:
+                    start = int(ratio * seg.start)
+                    end = int(ratio * seg.end)
+                    range_seg = [*range(start, end, 1)] 
+                    frames_of_interest += range_seg
+            
+            metadata = torchaudio.info(audio_path)
+            f1, f2 = get_formants(audio_path)
+            diff_frames = metadata.num_frames - len(f1)
+            additional_frames = [0]*math.ceil(diff_frames/2)
+            f1 = additional_frames + f1 + additional_frames
+            f2 = additional_frames + f2 + additional_frames
 
-    for seg in segments:
-        if seg.label == option:
-            start = int(ratio * seg.start)
-            end = int(ratio * seg.end)
-            range_seg = [*range(start, end, 1)] 
-            frames_of_interest += range_seg
-    
-    metadata = torchaudio.info(audio_path)
-    f1, f2 = get_formants(audio_path)
-    diff_frames = metadata.num_frames - len(f1)
-    additional_frames = [0]*math.ceil(diff_frames/2)
-    f1 = additional_frames + f1 + additional_frames
-    f2 = additional_frames + f2 + additional_frames
-
-    f1_frames = [f1[i] for i in frames_of_interest]
-    f2_frames = [f2[i] for i in frames_of_interest]
-    
-    st.pyplot(scatter_plot(f1_frames, f2_frames, "F1", "F2", "Formants"))
+            f1_frames = [f1[i] for i in frames_of_interest]
+            f2_frames = [f2[i] for i in frames_of_interest]
+            f1_values.append(f1_frames)
+            f2_values.append(f2_frames)
+            scatter_labels.append(option)
+        
+        st.pyplot(scatter_plot_multi(f1_values, f2_values, scatter_labels, "F1", "F2", "Formants"))
 
 
